@@ -2,27 +2,23 @@ import utils
 import numpy as np
 import variable
 import functional as F
+import nn
 
 
-class Network:
+class Network(nn.Module):
     def __init__(self) -> None:
-        self.w1 = variable.Variable(np.random.randn(784, 128) * 0.01)
-        self.b1 = variable.Variable(np.zeros(128))
-        self.w2 = variable.Variable(np.random.randn(128, 64) * 0.01)
-        self.b2 = variable.Variable(np.zeros(64))
-        self.w3 = variable.Variable(np.random.randn(64, 10) * 0.01)
-        self.b3 = variable.Variable(np.zeros(10))
+        super().__init__()
+        self.fc1 = nn.Linear(784, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 10)
 
     def forward(self, x):
-        x = F.add(F.mul(x, self.w1), self.b1)
+        x = self.fc1(x)
         x = F.relu(x)
-        x = F.add(F.mul(x, self.w2), self.b2)
+        x = self.fc2(x)
         x = F.relu(x)
-        x = F.add(F.mul(x, self.w3), self.b3)
+        x = self.fc3(x)
         return x
-
-    def parameters(self):
-        return [self.w1, self.b1, self.w2, self.b2, self.w3, self.b3]
 
 
 train_loader = utils.create_data_loader()
