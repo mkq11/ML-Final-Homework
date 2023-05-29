@@ -3,6 +3,7 @@ import numpy as np
 import variable
 import functional as F
 import nn
+import optim
 
 
 class Network(nn.Module):
@@ -25,19 +26,18 @@ train_loader = utils.create_data_loader()
 test_loader = utils.create_data_loader(False)
 
 network = Network()
+optimizer = optim.SGD(network.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
 
 for epoch in range(10):
     train_loss = 0
     for x, y in train_loader:
         x = variable.Variable(x)
         y = variable.Variable(np.eye(10)[y])
-        for param in network.parameters():
-            param.zero_grad()
+        optimizer.zero_grad()
         out = network.forward(x)
         loss = F.mse_loss(out, y)
         loss.backward()
-        for param in network.parameters():
-            param.value -= param.grad * 0.01
+        optimizer.step()
         train_loss += loss.value
     train_loss /= len(train_loader.dataset)
 
@@ -48,4 +48,4 @@ for epoch in range(10):
         acc += np.sum(np.argmax(out.value, axis=1) == y)
     acc /= len(test_loader.dataset)
 
-    print(f"Epoch {epoch + 1}: Train loss {train_loss:.4f}, Test acc {100*acc:.2f}")
+    print(f"Epoch {epoch + 1}: Train loss {train_loss:.4e}, Test acc {100*acc:.2f}")
