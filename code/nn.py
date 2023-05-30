@@ -6,15 +6,38 @@ import variable
 import functional as F
 
 
+class Paramerter(variable.Variable):
+    def __init__(self, shape):
+        super().__init__(np.random.randn(*shape) * 0.01)
+        self.requires_grad = True
+
+
 class Module:
     def __init__(self) -> None:
         super().__setattr__("_parameters", OrderedDict())
         super().__setattr__("_modules", OrderedDict())
+        super().__setattr__("training", True)
+
+    def train(self):
+        self.training = True
+        for module in self._modules.values():
+            module.train()
+        for param in self._parameters.values():
+            param.requires_grad = True
+
+    def eval(self):
+        self.training = False
+        for module in self._modules.values():
+            module.eval()
+        for param in self._parameters.values():
+            param.requires_grad = False
 
     def forward(self, x):
         raise NotImplementedError
 
     def __call__(self, x):
+        if isinstance(x, np.ndarray):
+            x = variable.Variable(x)
         return self.forward(x)
 
     def named_parameters(self):
@@ -44,17 +67,15 @@ class Module:
 
         if isinstance(value, Module):
             modules[name] = value
-        elif isinstance(value, variable.Variable):
+        elif isinstance(value, Paramerter):
             param[name] = value
 
 
 class Linear(Module):
     def __init__(self, in_features: int, out_features: int) -> None:
         super().__init__()
-        self.weight = variable.Variable(
-            np.random.randn(in_features, out_features) * 0.01
-        )
-        self.bias = variable.Variable(np.random.randn(out_features) * 0.01)
+        self.weight = Paramerter((in_features, out_features))
+        self.bias = Paramerter((out_features,))
 
     def forward(self, x):
-        return F.add(F.mul(x, self.weight), self.bias)
+        return x @ self.weight + self.bias

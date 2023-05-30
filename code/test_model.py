@@ -26,26 +26,29 @@ train_loader = utils.create_data_loader()
 test_loader = utils.create_data_loader(False)
 
 network = Network()
-optimizer = optim.SGD(network.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
+optimizer = optim.SGD(network.parameters(), lr=0.001, momentum=0.9, weight_decay=0.01)
 
 for epoch in range(10):
+    network.train()
     train_loss = 0
     for x, y in train_loader:
-        x = variable.Variable(x)
         y = variable.Variable(np.eye(10)[y])
         optimizer.zero_grad()
-        out = network.forward(x)
-        loss = F.mse_loss(out, y)
+        out = network(x)
+        loss = F.cross_entropy_loss(out, y)
         loss.backward()
         optimizer.step()
         train_loss += loss.value
     train_loss /= len(train_loader.dataset)
 
+    network.eval()
     acc = 0
     for x, y in test_loader:
         x = variable.Variable(x)
-        out = network.forward(x)
+        out = network(x)
         acc += np.sum(np.argmax(out.value, axis=1) == y)
     acc /= len(test_loader.dataset)
 
     print(f"Epoch {epoch + 1}: Train loss {train_loss:.4e}, Test acc {100*acc:.2f}")
+
+
