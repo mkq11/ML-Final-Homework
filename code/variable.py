@@ -5,7 +5,7 @@ import autograd
 
 
 def broadcast_if_needed(x, y):
-    other = other if isinstance(other, Variable) else Variable(other)
+    y = y if isinstance(y, Variable) else Variable(y)
     x_shape = x.value.shape
     y_shape = y.value.shape
     if x_shape != y_shape:
@@ -24,10 +24,14 @@ class Variable:
         self.grad_fn = None
         self.grad = None
         self.requires_grad = False
+        self._calc_node = None
+        self._ref_count = 0
+        self._current_grad = None
 
         if isinstance(x, autograd.CalculationNode):
             self.value = x.forward()
             self.grad_fn = x.backward
+            self._calc_node = x
         elif isinstance(x, np.ndarray):
             self.value = np.array(x, dtype=np.float32)
         elif isinstance(x, Variable):
@@ -36,6 +40,16 @@ class Variable:
             self.value = np.array([x], dtype=np.float32)
         else:
             raise ValueError("Invalid input.")
+
+    def _update_ref_count(self):
+        self._ref_count = 0
+        if self._calc_node is None:
+            return
+        for var in self._calc_node.inputs:
+            if not isinstance(var, Variable):
+                continue
+            var._update_ref_count()
+            var._ref_count += 1
 
     def zero_grad(self):
         if not self.requires_grad:
@@ -47,25 +61,40 @@ class Variable:
     def backward(self, gradient=None):
         if gradient is None:
             if self.value.size == 1:
-                gradient = np.ones_like(self.value)
+                grad = np.ones_like(self.value)
             else:
                 raise ValueError("Gradient required for vector-valued variable.")
+        else:
+            grad = gradient
+        self._update_ref_count()
+        self._backward_impl(grad)
+
+    def _backward_impl(self, gradient):
+        if self._current_grad is None:
+            self._current_grad = gradient.copy()
+
+        if self._ref_count != 0:
+            self._ref_count -= 1
+            self._current_grad += gradient
+            return
 
         if self.requires_grad:
             if self.grad is None:
                 self.zero_grad()
 
-            if len(gradient.shape) == len(self.value.shape) + 1:
-                self.grad += gradient.sum(axis=0)
-            elif len(gradient.shape) == len(self.value.shape):
-                self.grad += gradient
+            if len(self._current_grad.shape) == len(self.value.shape) + 1:
+                self.grad += self._current_grad.sum(axis=0)
+            elif len(self._current_grad.shape) == len(self.value.shape):
+                self.grad += self._current_grad
             else:
                 raise ValueError("Invalid gradient shape.")
 
         if self.grad_fn is not None:
-            inputs_gradient = self.grad_fn(gradient)
+            inputs_gradient = self.grad_fn(self._current_grad)
             for (node, g) in inputs_gradient:
                 node.backward(g)
+
+        self._current_grad = None
 
     def __add__(self, other):
         x, y = broadcast_if_needed(self, other)
