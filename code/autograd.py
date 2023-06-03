@@ -12,8 +12,26 @@ class CalculationNode:
         raise NotImplementedError
 
 
+class BroadcastNode(CalculationNode):
+    def __init__(self, x, shape):
+        super().__init__(x)
+        self.shape = shape
+        x_shape = np.ones(len(shape), dtype=np.int)
+        x_shape[-len(x.value.shape) :] = np.array(x.value.shape)
+        self.broadcast_axis = np.where(x_shape != self.shape)[0]
+        self.broadcast_axis = tuple(self.broadcast_axis)
+
+    def forward(self):
+        return np.broadcast_to(self.inputs[0].value, self.shape)
+
+    def backward(self, gradient):
+        return ((self.inputs[0], gradient.sum(axis=self.broadcast_axis)),)
+
+
 class AddNode(CalculationNode):
     def __init__(self, x, y):
+        if x.value.shape != y.value.shape:
+            raise NotImplementedError
         super().__init__(x, y)
 
     def forward(self):
@@ -25,6 +43,8 @@ class AddNode(CalculationNode):
 
 class SubNode(CalculationNode):
     def __init__(self, x, y):
+        if x.value.shape != y.value.shape:
+            raise NotImplementedError
         super().__init__(x, y)
 
     def forward(self):
@@ -36,6 +56,8 @@ class SubNode(CalculationNode):
 
 class MulNode(CalculationNode):
     def __init__(self, x, y):
+        if x.value.shape != y.value.shape:
+            raise NotImplementedError
         super().__init__(x, y)
 
     def forward(self):
@@ -50,6 +72,8 @@ class MulNode(CalculationNode):
 
 class DivNode(CalculationNode):
     def __init__(self, x, y):
+        if x.value.shape != y.value.shape:
+            raise NotImplementedError
         super().__init__(x, y)
 
     def forward(self):
@@ -78,6 +102,24 @@ class MatMulNode(CalculationNode):
             (
                 gradient @ self.inputs[1].value.T,
                 self.inputs[0].value.T @ gradient,
+            ),
+        )
+
+
+class PowNode(CalculationNode):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+
+    def forward(self):
+        return self.inputs[0].value ** self.inputs[1]
+
+    def backward(self, gradient):
+        return (
+            (
+                self.inputs[0],
+                gradient
+                * self.inputs[1]
+                * self.inputs[0].value ** (self.inputs[1] - 1),
             ),
         )
 
@@ -111,3 +153,20 @@ class CrossEntropyLossNode(CalculationNode):
         y = self.inputs[1].value
         softmax = self._softmax()
         return ((self.inputs[0], gradient * (softmax - y) / softmax.shape[0]),)
+
+
+class MeanNode(CalculationNode):
+    def __init__(self, x, axis=None):
+        super().__init__(x)
+        self.in_shape = np.array(x.value.shape)
+        self.axis = axis if axis is not None else tuple(range(len(self.in_shape)))
+        self.keep_shape = self.in_shape.copy()
+        self.keep_shape[axis] = 1
+
+    def forward(self):
+        return np.mean(self.inputs[0].value, axis=self.axis)
+
+    def backward(self, gradient):
+        grad = np.broadcast_to(gradient.reshape(self.keep_shape), self.in_shape).copy()
+        grad /= np.prod(self.in_shape[self.axis])
+        return ((self.inputs[0], grad),)

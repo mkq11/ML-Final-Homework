@@ -3,9 +3,24 @@ import numpy as np
 
 import autograd
 
+
+def broadcast_if_needed(x, y):
+    other = other if isinstance(other, Variable) else Variable(other)
+    x_shape = x.value.shape
+    y_shape = y.value.shape
+    if x_shape != y_shape:
+        broadcast_shape = np.broadcast_shapes(x_shape, y_shape)
+        return (
+            Variable(autograd.BroadcastNode(x, broadcast_shape)),
+            Variable(autograd.BroadcastNode(y, broadcast_shape)),
+        )
+    else:
+        return x, y
+
+
 class Variable:
-    def __init__(self, x : Union[np.ndarray, autograd.CalculationNode]):
-        
+    def __init__(self, x: Union[np.ndarray, autograd.CalculationNode]):
+
         self.grad_fn = None
         self.grad = None
         self.requires_grad = False
@@ -18,7 +33,7 @@ class Variable:
         elif isinstance(x, Variable):
             self.value = x.value
         elif isinstance(x, float) or isinstance(x, int):
-            self.value = np.array(x, dtype=np.float32)
+            self.value = np.array([x], dtype=np.float32)
         else:
             raise ValueError("Invalid input.")
 
@@ -53,37 +68,47 @@ class Variable:
                 node.backward(g)
 
     def __add__(self, other):
-        other = other if isinstance(other, Variable) else Variable(other)
-        return Variable(autograd.AddNode(self, other))
-    
+        x, y = broadcast_if_needed(self, other)
+        return Variable(autograd.AddNode(x, y))
+
     def __radd__(self, other):
         return self + other
-    
+
     def __sub__(self, other):
-        other = other if isinstance(other, Variable) else Variable(other)
-        return Variable(autograd.SubNode(self, other))
-    
+        x, y = broadcast_if_needed(self, other)
+        return Variable(autograd.SubNode(x, y))
+
     def __rsub__(self, other):
         return self - other
-    
+
     def __mul__(self, other):
-        other = other if isinstance(other, Variable) else Variable(other)
-        return Variable(autograd.MulNode(self, other))
-    
+        x, y = broadcast_if_needed(self, other)
+        return Variable(autograd.MulNode(x, y))
+
     def __rmul__(self, other):
         return self * other
-    
+
     def __matmul__(self, other):
         other = other if isinstance(other, Variable) else Variable(other)
         return Variable(autograd.MatMulNode(self, other))
-    
+
     def __rmatmul__(self, other):
         return self @ other
-    
+
     def __truediv__(self, other):
-        other = other if isinstance(other, Variable) else Variable(other)
-        return Variable(autograd.DivNode(self, other))
-    
+        x, y = broadcast_if_needed(self, other)
+        return Variable(autograd.DivNode(x, y))
+
     def __rtruediv__(self, other):
         return self / other
-    
+
+    def __pow__(self, other: float):
+        return Variable(autograd.PowNode(self, other))
+
+    def mean(self, axis=None):
+        return Variable(autograd.MeanNode(self, axis))
+
+    def var(self, axis=None):
+        err = self - self.mean(axis)
+        sq_err = err ** 2
+        return sq_err.mean(axis)  # * size / (size - 1)

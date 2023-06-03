@@ -10,13 +10,17 @@ class Network(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.fc1 = nn.Linear(784, 128)
+        self.norm1 = nn.BatchNorm1d(128)
         self.fc2 = nn.Linear(128, 64)
+        self.norm2 = nn.BatchNorm1d(64)
         self.fc3 = nn.Linear(64, 10)
 
     def forward(self, x):
         x = self.fc1(x)
+        x = self.norm1(x)
         x = F.relu(x)
         x = self.fc2(x)
+        x = self.norm2(x)
         x = F.relu(x)
         x = self.fc3(x)
         return x
@@ -26,9 +30,9 @@ train_loader = utils.create_data_loader()
 test_loader = utils.create_data_loader(False)
 
 network = Network()
-optimizer = optim.SGD(network.parameters(), lr=0.001, momentum=0.9, weight_decay=0.01)
+optimizer = optim.SGD(network.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
 
-for epoch in range(10):
+for epoch in range(20):
     network.train()
     train_loss = 0
     for x, y in train_loader:
@@ -50,5 +54,3 @@ for epoch in range(10):
     acc /= len(test_loader.dataset)
 
     print(f"Epoch {epoch + 1}: Train loss {train_loss:.4e}, Test acc {100*acc:.2f}")
-
-

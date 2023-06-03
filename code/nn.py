@@ -79,3 +79,33 @@ class Linear(Module):
 
     def forward(self, x):
         return x @ self.weight + self.bias
+
+
+class BatchNorm1d(Module):
+    def __init__(self, num_features: int, momentum=0.1, eps=1e-5) -> None:
+        super().__init__()
+        self.num_features = num_features
+        self.weight = Paramerter((num_features,))
+        self.bias = Paramerter((num_features,))
+        self.running_mean = np.zeros((num_features,), dtype=np.float32)
+        self.running_var = np.ones((num_features,), dtype=np.float32)
+        self.momentum = momentum
+        self.eps = eps
+        self.weight.value = np.ones((num_features,), dtype=np.float32)
+        self.bias.value = np.zeros((num_features,), dtype=np.float32)
+
+    def forward(self, x):
+        if self.training:
+            batch_mean = x.mean(axis=0)
+            batch_var = x.var(axis=0)
+            self.running_mean = (
+                1 - self.momentum
+            ) * self.running_mean + self.momentum * batch_mean.value
+            self.running_var = (
+                1 - self.momentum
+            ) * self.running_var + self.momentum * batch_var.value
+        else:
+            batch_mean = self.running_mean
+            batch_var = self.running_var
+        x = (x - batch_mean) / ((batch_var + self.eps) ** 0.5)
+        return x * self.weight + self.bias
