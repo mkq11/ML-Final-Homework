@@ -46,13 +46,13 @@ class Variable:
             raise ValueError("Invalid input.")
 
     def _update_ref_count(self):
-        self._ref_count = 0 if self._ref_count is None else self._ref_count
+        self._ref_count = 0
         if self._calc_node is None:
             return
         for var in self._calc_node.inputs:
             if not isinstance(var, Variable):
                 continue
-            if var._ref_count is None:
+            if var._ref_count == 0:
                 var._update_ref_count()
             var._ref_count += 1
 

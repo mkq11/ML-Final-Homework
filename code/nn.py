@@ -71,6 +71,19 @@ class Module:
             param[name] = value
 
 
+class Sequential(Module):
+    def __init__(self, *args) -> None:
+        super().__init__()
+        for idx, module in enumerate(args):
+            self.__setattr__(f"layer{idx}", module)
+        self.layers_num = len(args)
+
+    def forward(self, x):
+        for idx in range(self.layers_num):
+            x = self.__getattribute__(f"layer{idx}")(x)
+        return x
+
+
 class Linear(Module):
     def __init__(self, in_features: int, out_features: int) -> None:
         super().__init__()
@@ -136,28 +149,26 @@ class BatchNorm2d(Module):
         self.num_features = num_features
         self.weight = Paramerter((num_features,))
         self.bias = Paramerter((num_features,))
-        self.running_mean = np.zeros((num_features,), dtype=np.float32)
-        self.running_var = np.ones((num_features,), dtype=np.float32)
+        self.running_mean = np.zeros((1, num_features, 1, 1), dtype=np.float32)
+        self.running_var = np.ones((1, num_features, 1, 1), dtype=np.float32)
         self.momentum = momentum
         self.eps = eps
         self.weight.value = np.ones((num_features,), dtype=np.float32)
         self.bias.value = np.zeros((num_features,), dtype=np.float32)
 
-    def forward(self, x : variable.Variable):
+    def forward(self, x: variable.Variable):
         if self.training:
             batch_mean = x.mean(axis=(0, 2, 3), keepdims=True)
             batch_var = x.var(axis=(0, 2, 3), keepdims=True)
             self.running_mean = (
                 1 - self.momentum
-            ) * self.running_mean + self.momentum * batch_mean
+            ) * self.running_mean + self.momentum * batch_mean.value
             self.running_var = (
                 1 - self.momentum
-            ) * self.running_var + self.momentum * batch_var
+            ) * self.running_var + self.momentum * batch_var.value
         else:
             batch_mean = self.running_mean
             batch_var = self.running_var
-        x = (x - batch_mean) / (
-            (batch_var + self.eps) ** 0.5
-        )
+        x = (x - batch_mean) / ((batch_var + self.eps) ** 0.5)
         x = x * self.weight.reshape(1, -1, 1, 1) + self.bias.reshape(1, -1, 1, 1)
         return x
