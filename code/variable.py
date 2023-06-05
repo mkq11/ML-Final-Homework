@@ -11,8 +11,12 @@ def broadcast_if_needed(x, y):
     if x_shape != y_shape:
         broadcast_shape = np.broadcast_shapes(x_shape, y_shape)
         return (
-            Variable(autograd.BroadcastNode(x, broadcast_shape)),
-            Variable(autograd.BroadcastNode(y, broadcast_shape)),
+            Variable(autograd.BroadcastNode(x, broadcast_shape))
+            if x_shape != broadcast_shape
+            else x,
+            Variable(autograd.BroadcastNode(y, broadcast_shape))
+            if y_shape != broadcast_shape
+            else y,
         )
     else:
         return x, y
@@ -42,13 +46,14 @@ class Variable:
             raise ValueError("Invalid input.")
 
     def _update_ref_count(self):
-        self._ref_count = 0
+        self._ref_count = 0 if self._ref_count is None else self._ref_count
         if self._calc_node is None:
             return
         for var in self._calc_node.inputs:
             if not isinstance(var, Variable):
                 continue
-            var._update_ref_count()
+            if var._ref_count is None:
+                var._update_ref_count()
             var._ref_count += 1
 
     def zero_grad(self):
@@ -71,11 +76,11 @@ class Variable:
 
     def _backward_impl(self, gradient):
         if self._current_grad is None:
-            self._current_grad = gradient.copy()
+            self._current_grad = np.zeros_like(gradient)
 
-        if self._ref_count != 0:
-            self._ref_count -= 1
-            self._current_grad += gradient
+        self._current_grad += gradient
+        self._ref_count -= 1
+        if self._ref_count > 0:
             return
 
         if self.requires_grad:
@@ -92,7 +97,7 @@ class Variable:
         if self.grad_fn is not None:
             inputs_gradient = self.grad_fn(self._current_grad)
             for (node, g) in inputs_gradient:
-                node.backward(g)
+                node._backward_impl(g)
 
         self._current_grad = None
 
@@ -134,10 +139,13 @@ class Variable:
     def __pow__(self, other: float):
         return Variable(autograd.PowNode(self, other))
 
-    def mean(self, axis=None):
-        return Variable(autograd.MeanNode(self, axis))
+    def mean(self, axis=None, keepdims=False):
+        return Variable(autograd.MeanNode(self, axis, keepdims))
 
-    def var(self, axis=None):
-        err = self - self.mean(axis)
+    def var(self, axis=None, keepdims=False):
+        err = self - self.mean(axis, keepdims=True)
         sq_err = err ** 2
-        return sq_err.mean(axis)  # * size / (size - 1)
+        return sq_err.mean(axis, keepdims=keepdims)
+
+    def reshape(self, *args):
+        return Variable(autograd.ReshapeNode(self, args))

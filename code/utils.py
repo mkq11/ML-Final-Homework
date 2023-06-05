@@ -34,7 +34,8 @@ class MNISTDataset:
             df = df.iloc[:5000]
         else:
             df = df.iloc[5000:7000]
-        self.data = df.iloc[:, 1:].values
+        self.data = df.iloc[:, 1:].values / 255
+        self.data.reshape(-1, 1, 28, 28)
         self.label = df.iloc[:, 0].values
     
     def __len__(self):

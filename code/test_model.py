@@ -36,6 +36,7 @@ for epoch in range(20):
     network.train()
     train_loss = 0
     for x, y in train_loader:
+        x = x.reshape(-1, 784)
         y = variable.Variable(np.eye(10)[y])
         optimizer.zero_grad()
         out = network(x)
