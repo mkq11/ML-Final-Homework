@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.image as mpimg
 
 
 class DataLoader:
@@ -50,3 +51,17 @@ def create_data_loader(batch_size=64, train=True):
     dataset = MNISTDataset(train)
     loader = DataLoader(dataset, batch_size, train)
     return loader
+
+
+def read_test_data():
+    data = []
+    label = []
+    for i in range(10):
+        img = mpimg.imread(f"./data/test_data/{i}.jpg")
+        img = img[:, :, 1].reshape(28, 28)
+        img = 1 - img / 255
+        data.append(img)
+        label.append(i)
+    data = np.array(data).reshape(-1, 1, 28, 28)
+    label = np.array(label)
+    return data, label
