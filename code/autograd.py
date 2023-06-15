@@ -157,10 +157,14 @@ class MSELossNode(CalculationNode):
         return np.mean((self.inputs[0].value - self.inputs[1].value) ** 2)
 
     def backward(self, gradient):
-        return (
-            (self.inputs[0], gradient * 2 * (self.inputs[0].value - self.inputs[1].value)),
-            (self.inputs[1], gradient * 2 * (self.inputs[1].value - self.inputs[0].value)),
+        grad = (
+            gradient
+            * 2
+            * (self.inputs[0].value - self.inputs[1].value)
+            / self.inputs[0].value.size
         )
+        return zip(self.inputs, (grad, -grad))
+
 
 class CrossEntropyLossNode(CalculationNode):
     def __init__(self, x, y):
@@ -188,7 +192,9 @@ class MeanNode(CalculationNode):
         self.in_shape = np.array(x.value.shape)
         self.axis = axis if axis is not None else tuple(range(len(self.in_shape)))
         self.keep_shape = self.in_shape.copy()
-        self.keep_shape[axis, ] = 1
+        self.keep_shape[
+            axis,
+        ] = 1
         self.keepdims = keepdims
 
     def forward(self):
@@ -196,7 +202,11 @@ class MeanNode(CalculationNode):
 
     def backward(self, gradient):
         grad = np.broadcast_to(gradient.reshape(self.keep_shape), self.in_shape).copy()
-        grad /= np.prod(self.in_shape[self.axis, ])
+        grad /= np.prod(
+            self.in_shape[
+                self.axis,
+            ]
+        )
         return ((self.inputs[0], grad),)
 
 

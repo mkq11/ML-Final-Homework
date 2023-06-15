@@ -1,4 +1,3 @@
-from ast import mod
 from typing import OrderedDict
 import numpy as np
 
@@ -7,8 +6,11 @@ import functional as F
 
 
 class Paramerter(variable.Variable):
-    def __init__(self, shape):
-        super().__init__(np.random.randn(*shape) * 0.01)
+    def __init__(self, shape, empty=False):
+        if empty:
+            super().__init__(np.empty(shape))
+        else:
+            super().__init__(np.random.randn(*shape) * 0.01)
         self.requires_grad = True
 
 
@@ -87,8 +89,14 @@ class Sequential(Module):
 class Linear(Module):
     def __init__(self, in_features: int, out_features: int) -> None:
         super().__init__()
-        self.weight = Paramerter((in_features, out_features))
-        self.bias = Paramerter((out_features,))
+        self.weight = Paramerter((in_features, out_features), empty=True)
+        self.bias = Paramerter((out_features,), empty=True)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        e = 1 / np.sqrt(self.weight.value.shape[0])
+        self.weight.value = np.random.uniform(-e, e, self.weight.value.shape)
+        self.bias.value = np.zeros(self.bias.value.shape)
 
     def forward(self, x):
         return x @ self.weight + self.bias

@@ -1,4 +1,5 @@
-import utils
+import time
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.naive_bayes import GaussianNB
@@ -8,12 +9,13 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.neural_network import MLPClassifier
 
+import utils
 
 def load_data(standard=True, pca=False):
-    train_data = utils.MNISTDataset(train=True)
+    train_data = utils.MNISTDataset()
     train_x, train_y = train_data.data, train_data.label
     train_x = train_x.reshape(-1, 28 * 28)
-    train_data = utils.MNISTDataset(train=False)
+    train_data = utils.MNISTDataset(type="test")
     test_x2, test_y2 = train_data.data, train_data.label
     test_x2 = test_x2.reshape(-1, 28 * 28)
 
@@ -35,42 +37,42 @@ def load_data(standard=True, pca=False):
     return train_x, train_y, test_x, test_y, test_x2, test_y2
 
 
-def main():
-    train_x, train_y, test_x, test_y, test_x2, test_y2 = load_data(
-        standard=False, pca=True
-    )
-    bayes = GaussianNB()
-    bayes.fit(train_x, train_y)
-    print(bayes.score(test_x2, test_y2))
-    print(bayes.score(test_x, test_y))
+def test_model(model, model_name, data):
+    train_x, train_y, test_x, test_y, test_x2, test_y2 = data
+    begin = time.time()
+    model.fit(train_x, train_y)
+    score1 = model.score(test_x2, test_y2)
+    score2 = model.score(test_x, test_y)
+    end = time.time()
+    print(f"{model_name}，给定数据准确率：{100 * score1:.2f}%，额外数据准确率：{100 * score2: .0f}%，训练时间：{end - begin:.2f}s")
 
-    train_x, train_y, test_x, test_y, test_x2, test_y2 = load_data(
-        standard=False, pca=False
-    )
-    forest = RandomForestClassifier()
-    forest.fit(train_x, train_y)
-    print(forest.score(test_x2, test_y2))
-    print(forest.score(test_x, test_y))
+
+def main():
+    data = load_data(standard=False, pca=True)
+    bayes = GaussianNB()
+    test_model(bayes, "朴素贝叶斯", data)
+
+    data = load_data(standard=False, pca=False)
+    forest = RandomForestClassifier(max_depth=10)
+    test_model(forest, "随机森林", data)
 
     svc = SVC()
-    svc.fit(train_x, train_y)
-    print(svc.score(test_x2, test_y2))
-    print(svc.score(test_x, test_y))
+    test_model(svc, "支持向量机", data)
 
-    knn = KNeighborsClassifier()
-    knn.fit(train_x, train_y)
-    print(knn.score(test_x2, test_y2))
-    print(knn.score(test_x, test_y))
+    knn = KNeighborsClassifier(3)
+    test_model(knn, "KNN", data)
 
     lda = LinearDiscriminantAnalysis()
-    lda.fit(train_x, train_y)
-    print(lda.score(test_x2, test_y2))
-    print(lda.score(test_x, test_y))
+    test_model(lda, "线性判别分析", data)
 
-    mlp = MLPClassifier(hidden_layer_sizes=(64, 64))
-    mlp.fit(train_x, train_y)
-    print(mlp.score(test_x2, test_y2))
-    print(mlp.score(test_x, test_y))
+    mlp = MLPClassifier(
+        hidden_layer_sizes=(64, 64),
+        solver="sgd",
+        learning_rate_init=0.01,
+        batch_size=64,
+        alpha=1e-4,
+    )
+    test_model(mlp, "多层感知机", data)
 
 
 if __name__ == "__main__":
