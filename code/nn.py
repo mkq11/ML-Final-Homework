@@ -53,6 +53,11 @@ class Module:
         for name, param in self.named_parameters():
             yield param
 
+    def add_module(self, name: str, module) -> None:
+        if not isinstance(module, Module):
+            raise TypeError(f"{name} is not a Module subclass")
+        self.__setattr__(name, module)
+
     def __setattr__(self, name: str, value) -> None:
         super().__setattr__(name, value)
         param = self.__dict__.get("_parameters")

@@ -7,6 +7,10 @@ def relu(x):
     return Variable(autograd.ReLUNode(x))
 
 
+def sigmoid(x):
+    return Variable(autograd.SigmoidNode(x))
+
+
 def cross_entropy_loss(x, y):
     return Variable(autograd.CrossEntropyLossNode(x, y))
 

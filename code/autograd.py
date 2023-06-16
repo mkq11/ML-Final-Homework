@@ -149,6 +149,20 @@ class ReLUNode(CalculationNode):
         return ((self.inputs[0], gradient * (self.inputs[0].value > 0)),)
 
 
+class SigmoidNode(CalculationNode):
+    def __init__(self, x):
+        super().__init__(x)
+
+    def _sigmoid(self):
+        return 1 / (1 + np.exp(-self.inputs[0].value))
+
+    def forward(self):
+        return self._sigmoid()
+
+    def backward(self, gradient):
+        return ((self.inputs[0], gradient * self._sigmoid() * (1 - self._sigmoid())),)
+
+
 class MSELossNode(CalculationNode):
     def __init__(self, x, y):
         super().__init__(x, y)

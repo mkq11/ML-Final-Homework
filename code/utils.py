@@ -30,7 +30,7 @@ class DataLoader:
 
 
 class MNISTDataset:
-    def __init__(self, type="train"):
+    def __init__(self, type="train", flatten=False):
         df = pd.read_csv("./data/mnist_data.csv")
         if type == "train":
             df = df.iloc[:5000]
@@ -39,7 +39,10 @@ class MNISTDataset:
         else:
             df = df.iloc[5000:]
         self.data = df.iloc[:, 1:].values / 255
-        self.data = self.data.reshape(-1, 1, 28, 28)
+        if flatten:
+            self.data = self.data.reshape(-1, 28 * 28)
+        else:
+            self.data = self.data.reshape(-1, 1, 28, 28)
         self.label = df.iloc[:, 0].values
 
     def __len__(self):
@@ -49,8 +52,8 @@ class MNISTDataset:
         return self.data[index], self.label[index]
 
 
-def create_data_loader(batch_size=64, train=True):
-    dataset = MNISTDataset('train' if train else 'val')
+def create_data_loader(batch_size=64, train=True, flatten=False):
+    dataset = MNISTDataset('train' if train else 'val', flatten)
     loader = DataLoader(dataset, batch_size, train)
     return loader
 
